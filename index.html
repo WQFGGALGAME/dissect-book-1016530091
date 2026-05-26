@@ -1,0 +1,854 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="color-scheme" content="dark"/>
+<title>拆书分析终端 · 赤心巡天</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+
+:root{
+  --bg:#020408;--glass:rgba(10,16,30,.65);--glass-border:rgba(148,163,184,.12);
+  --line:#1e3a5f;--cyan:#2dd4bf;--cyan2:#0891b2;--blue:#38bdf8;
+  --violet:#818cf8;--amber:#fbbf24;--text:#e8eef6;--muted:#64748b;
+  --rail-w:240px;--nav-z:20;--accent-glow:rgba(45,212,191,.22);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Noto Sans SC","Syne",system-ui,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;
+}
+.aurora{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.aurora .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.45;animation:drift 18s ease-in-out infinite alternate}
+.orb-1{width:55vw;height:55vw;background:radial-gradient(circle,#0891b2 0%,transparent 70%);top:-15%;left:-10%}
+.orb-2{width:45vw;height:45vw;background:radial-gradient(circle,#4f46e5 0%,transparent 70%);bottom:-20%;right:-15%;animation-delay:-6s}
+.orb-3{width:35vw;height:35vw;background:radial-gradient(circle,#0d9488 0%,transparent 70%);top:40%;left:35%;animation-delay:-12s;opacity:.28}
+@keyframes drift{to{transform:translate(4%,6%) scale(1.08)}}
+#bg-net{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.5}
+.noise{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.scan-beam{position:fixed;left:0;right:0;height:1px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(45,212,191,.6),transparent);
+  animation:scan 10s linear infinite;opacity:.4}
+@keyframes scan{0%{top:0}100%{top:100%}}
+.read-progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:50;
+  background:linear-gradient(90deg,var(--cyan2),var(--cyan),var(--violet));box-shadow:0 0 12px var(--cyan);transition:width .12s}
+.chapter-dots{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:calc(var(--nav-z) - 1);
+  display:flex;flex-direction:column;gap:5px;padding:10px 6px 10px 8px;
+  max-height:min(78vh,560px);overflow-y:auto;
+  background:rgba(6,10,20,.52);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--glass-border);border-right:none;border-radius:10px 0 0 10px;
+  scrollbar-width:thin;
+}
+.chapter-dots a{
+  min-width:30px;height:28px;padding:0 6px;border-radius:6px;
+  border:1px solid var(--line);background:rgba(15,23,42,.65);
+  display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:.58rem;color:var(--muted);
+  text-decoration:none;transition:.22s;
+}
+.chapter-dots a:hover,.chapter-dots a.active{
+  background:var(--cyan);border-color:var(--cyan);color:#020408;
+  box-shadow:0 0 12px rgba(45,212,191,.45);transform:scale(1.06);
+}
+.boot{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(2,4,8,.92);backdrop-filter:blur(12px)}
+.boot.hide{opacity:0;pointer-events:none;transition:opacity .9s}
+.boot-matrix{position:absolute;inset:0;opacity:.35;pointer-events:none}
+.boot-inner{position:relative;text-align:center;padding:32px;z-index:1}
+.boot-tag{font-family:"JetBrains Mono",monospace;font-size:.68rem;letter-spacing:.38em;color:var(--cyan);margin-bottom:18px}
+.boot-title{font-family:"Orbitron",sans-serif;font-size:clamp(1.3rem,4.5vw,2.4rem);font-weight:700;
+  background:linear-gradient(120deg,#f8fafc 0%,var(--cyan) 45%,var(--violet) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:24px;
+  filter:drop-shadow(0 0 24px rgba(45,212,191,.25))}
+.boot-bar{width:min(360px,82vw);height:2px;background:rgba(30,41,59,.8);border-radius:2px;margin:0 auto 14px;overflow:hidden}
+.boot-bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan2),var(--cyan),var(--violet));
+  animation:load 2s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes load{to{width:100%}}
+.boot-hint{font-family:"JetBrains Mono",monospace;font-size:.7rem;color:var(--muted)}
+.app{display:block;position:relative;z-index:4;min-height:100vh}
+.app.hidden{opacity:0}
+.rail{
+  position:fixed;left:0;top:0;bottom:0;width:var(--rail-w);padding:20px 12px 16px;
+  background:rgba(6,10,20,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-right:1px solid var(--glass-border);display:flex;flex-direction:column;
+  z-index:var(--nav-z);box-shadow:4px 0 32px rgba(0,0,0,.35);
+}
+.rail-brand{margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--glass-border);flex-shrink:0}
+.rail-logo{font-family:"Orbitron",sans-serif;font-size:.95rem;color:var(--cyan);letter-spacing:.12em}
+.rail-sub{font-family:"JetBrains Mono",monospace;font-size:.56rem;color:var(--muted);letter-spacing:.2em}
+.rail-meta{
+  font-family:"JetBrains Mono",monospace;font-size:.6rem;color:var(--violet);
+  margin:12px 0 10px;line-height:1.45;flex-shrink:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.rail-nav{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:2px;scrollbar-width:thin}
+.rail-divider{
+  font-family:"JetBrains Mono",monospace;font-size:.56rem;color:var(--muted);
+  letter-spacing:.14em;margin:12px 4px 6px;padding-top:8px;border-top:1px solid var(--glass-border);
+}
+.rail-link{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;
+  text-decoration:none;color:var(--muted);font-size:.74rem;border:1px solid transparent;transition:.22s;flex-shrink:0;
+}
+.rail-link:hover,.rail-link.active{
+  color:var(--cyan);border-color:rgba(45,212,191,.25);
+  background:linear-gradient(90deg,rgba(45,212,191,.12),transparent);
+  box-shadow:inset 2px 0 0 var(--cyan);
+}
+.rail-link-extra .rail-num{color:var(--violet);min-width:18px;text-align:center}
+.rail-num{font-family:"JetBrains Mono",monospace;font-size:.6rem;color:var(--cyan);min-width:24px;flex-shrink:0}
+.rail-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail-foot{font-family:"JetBrains Mono",monospace;font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.55;flex-shrink:0}
+.rail-toggle{
+  display:none;position:fixed;left:14px;bottom:18px;z-index:calc(var(--nav-z) + 2);
+  align-items:center;gap:7px;padding:10px 14px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(45,212,191,.35);background:rgba(6,10,20,.88);color:var(--cyan);
+  font-family:"JetBrains Mono",monospace;font-size:.68rem;backdrop-filter:blur(12px);
+  box-shadow:0 4px 24px rgba(0,0,0,.4),0 0 20px rgba(45,212,191,.12);
+}
+.rail-toggle-icon{font-size:.9rem;line-height:1}
+.rail-backdrop{
+  position:fixed;inset:0;z-index:calc(var(--nav-z) - 1);
+  background:rgba(2,4,8,.58);backdrop-filter:blur(3px);
+}
+.rail-backdrop[hidden]{display:none}
+.main{flex:1;margin-left:var(--rail-w);padding:0 40px 88px 32px;max-width:calc(1080px + var(--rail-w))}
+.book-hud{
+  padding:44px 0 36px;margin-bottom:12px;position:relative;
+  border-bottom:1px solid var(--glass-border);
+}
+.book-hud::after{
+  content:"";position:absolute;bottom:-1px;left:0;width:120px;height:2px;
+  background:linear-gradient(90deg,var(--cyan),transparent);
+}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:.66rem;letter-spacing:.32em;color:var(--cyan);margin-bottom:12px}
+.book-hud h1{
+  font-family:"Syne","Noto Sans SC",sans-serif;font-size:clamp(1.5rem,3.8vw,2.1rem);
+  font-weight:700;letter-spacing:-.02em;margin-bottom:22px;line-height:1.2;
+}
+.hud-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.stat{
+  padding:12px 14px;background:var(--glass);backdrop-filter:blur(12px);
+  border:1px solid var(--glass-border);border-radius:8px;position:relative;overflow:hidden;
+}
+.stat::after{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);
+}
+.stat .k{display:block;font-family:"JetBrains Mono",monospace;font-size:.56rem;color:var(--muted);letter-spacing:.12em;margin-bottom:5px}
+.stat .v{font-size:.86rem;font-weight:500}
+.selling-beam{
+  margin-top:22px;padding:18px 20px;border-radius:10px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(8,145,178,.14),rgba(79,70,229,.08));
+  border:1px solid rgba(45,212,191,.25);backdrop-filter:blur(8px);
+}
+.selling-beam::before{
+  content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(45,212,191,.08) 50%,transparent 60%);
+  animation:shimmer 4s ease-in-out infinite;
+}
+@keyframes shimmer{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+.beam-tag{font-family:"JetBrains Mono",monospace;font-size:.6rem;color:var(--cyan);letter-spacing:.16em;position:relative}
+.selling-beam p{margin-top:10px;font-size:.94rem;position:relative;line-height:1.65}
+.chapter-deck{padding:52px 0 28px;scroll-margin-top:24px}
+.deck-head{margin-bottom:26px}
+.deck-idx{font-family:"Orbitron",sans-serif;font-size:.72rem;color:var(--violet);letter-spacing:.22em}
+.deck-title{
+  font-family:"Syne",sans-serif;font-size:clamp(1.15rem,2.6vw,1.55rem);
+  font-weight:700;margin:8px 0 8px;letter-spacing:-.01em;
+}
+.deck-sub{font-family:"JetBrains Mono",monospace;font-size:.7rem;color:var(--muted)}
+.deck-meter{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+.deck-meter span{
+  font-family:"JetBrains Mono",monospace;font-size:.58rem;padding:4px 10px;border-radius:20px;
+  border:1px solid var(--glass-border);color:var(--muted);background:rgba(15,23,42,.5);
+}
+.deck-meter .m-accent{border-color:rgba(251,191,36,.4);color:var(--amber)}
+.viz-dual{margin-bottom:30px}
+.viz-tabs{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.viz-tab{
+  font-family:"JetBrains Mono",monospace;font-size:.7rem;padding:9px 18px;
+  border:1px solid var(--glass-border);background:var(--glass);color:var(--muted);
+  cursor:pointer;border-radius:8px;transition:.22s;backdrop-filter:blur(8px);
+}
+.viz-tab:hover{color:var(--text)}
+.viz-tab.active{
+  color:var(--cyan);border-color:rgba(45,212,191,.45);
+  box-shadow:0 0 28px var(--accent-glow),inset 0 0 24px rgba(45,212,191,.08);
+  background:linear-gradient(145deg,rgba(45,212,191,.15),rgba(15,23,42,.4));
+}
+.viz-3d-panel,.viz-2d-panel{display:none}
+.viz-3d-panel.active,.viz-2d-panel.active{display:block}
+.viz-frame{
+  position:relative;border-radius:12px;overflow:hidden;
+  border:1px solid var(--glass-border);
+  background:linear-gradient(160deg,rgba(12,20,36,.85),rgba(2,4,8,.95));
+  box-shadow:0 4px 48px rgba(0,0,0,.45),0 0 80px rgba(45,212,191,.06),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.viz-frame::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 3px);
+  opacity:.5;
+}
+.frame-corners{position:absolute;inset:14px;pointer-events:none;z-index:2}
+.frame-corners .fc{position:absolute;width:24px;height:24px;border:2px solid rgba(45,212,191,.55)}
+.frame-corners .tl{top:0;left:0;border-right:none;border-bottom:none}
+.frame-corners .tr{top:0;right:0;border-left:none;border-bottom:none}
+.frame-corners .bl{bottom:0;left:0;border-right:none;border-top:none}
+.frame-corners .br{bottom:0;right:0;border-left:none;border-top:none}
+.mind-canvas-3d{width:100%;height:min(58vh,520px);min-height:340px;display:block;cursor:grab;touch-action:none;position:relative;z-index:0}
+.mind-canvas-3d:active{cursor:grabbing}
+.node-hud-3d{
+  position:absolute;left:18px;top:58px;max-width:min(380px,86%);padding:14px 18px;z-index:4;
+  background:rgba(4,8,18,.82);border:1px solid rgba(45,212,191,.3);border-radius:8px;
+  pointer-events:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 8px 32px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.04) inset;
+}
+.node-hud-3d.hidden{display:none}
+.node-hud-3d .nh-label{font-family:"JetBrains Mono",monospace;color:var(--cyan);font-size:.68rem;letter-spacing:.1em}
+.node-hud-3d .nh-preview{display:-webkit-box;margin-top:8px;font-size:.8rem;line-height:1.45;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:#cbd5e1}
+.graph-fallback-3d{
+  position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
+  background:rgba(2,4,8,.94);padding:28px;text-align:center;color:var(--muted);font-size:.86rem;line-height:1.65;
+}
+.graph-fallback-3d.hidden{display:none}
+.topo-svg{width:100%;height:auto;display:block;min-height:300px;filter:drop-shadow(0 0 12px rgba(45,212,191,.15))}
+.viz-hud{position:absolute;top:14px;left:16px;right:16px;z-index:3;display:flex;justify-content:space-between;pointer-events:none}
+.viz-tag{font-family:"JetBrains Mono",monospace;font-size:.6rem;color:var(--cyan);letter-spacing:.16em}
+.viz-live{font-family:"JetBrains Mono",monospace;font-size:.6rem;color:#4ade80;text-shadow:0 0 8px rgba(74,222,128,.5)}
+.topo-node{cursor:pointer;transition:filter .25s,transform .25s}
+.topo-node:hover{filter:drop-shadow(0 0 10px rgba(45,212,191,.8))}
+.topo-line{stroke-width:1.4;fill:none;stroke-dasharray:8 12;animation:dash 1.4s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-40}}
+.topo-pulse{animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+.spotlight{
+  position:relative;margin-bottom:28px;padding:28px 30px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(145deg,rgba(251,191,36,.1),rgba(8,14,28,.88));
+  border:1px solid rgba(251,191,36,.32);
+  box-shadow:0 12px 48px rgba(251,191,36,.08),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.spotlight-rim{
+  position:absolute;inset:0;border-radius:12px;padding:1px;pointer-events:none;
+  background:conic-gradient(from 0deg,var(--amber),var(--cyan),var(--violet),var(--amber));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;opacity:.55;animation:rimSpin 8s linear infinite;
+}
+@keyframes rimSpin{to{transform:rotate(360deg)}}
+.spot-tag{font-family:"JetBrains Mono",monospace;font-size:.62rem;color:var(--amber);letter-spacing:.14em}
+.spotlight header{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px}
+.spotlight header h3{font-family:"Syne",sans-serif;font-size:1.05rem;margin-top:8px;color:#fde68a;flex:1;min-width:180px}
+.spot-body{margin-top:16px;font-size:.93rem;line-height:1.8;white-space:pre-wrap;color:#f1f5f9}
+.bento{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+.mod{
+  position:relative;padding:18px 20px;border-radius:10px;overflow:hidden;
+  background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--glass-border);
+  transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s,border-color .28s;
+  opacity:0;transform:translateY(16px);
+}
+.mod.visible{opacity:1;transform:none}
+.mod::before{
+  content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(45,212,191,.06),transparent);
+  transition:left .5s;
+}
+.mod:hover::before{left:140%}
+.mod:hover,.mod.focus{
+  border-color:rgba(45,212,191,.35);
+  box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 32px rgba(45,212,191,.08);
+  transform:translateY(-3px);
+}
+.mod-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.mod-id{
+  font-family:"JetBrains Mono",monospace;font-size:.58rem;padding:4px 9px;
+  background:rgba(45,212,191,.1);color:var(--cyan);border-radius:4px;flex-shrink:0;
+  border:1px solid rgba(45,212,191,.2);
+}
+.mod h3{font-size:.86rem;font-weight:500;line-height:1.4;flex:1}
+.mod-copy{
+  font-family:"JetBrains Mono",monospace;font-size:.58rem;padding:3px 8px;
+  border:1px solid var(--glass-border);background:transparent;color:var(--muted);
+  border-radius:4px;cursor:pointer;flex-shrink:0;transition:.2s;
+}
+.mod-copy:hover{color:var(--cyan);border-color:var(--cyan)}
+.mod-body{font-size:.84rem;color:#cbd5e1;white-space:pre-wrap;word-break:break-word;line-height:1.7}
+.excerpt-mod .mod-body{font-style:italic;color:var(--muted);border-left:2px solid var(--line);padding-left:12px;margin-left:2px}
+.harvest-list{list-style:none;display:grid;gap:12px}
+.harvest-list li{
+  padding:16px 18px;border-left:3px solid var(--violet);
+  background:var(--glass);border-radius:0 10px 10px 0;backdrop-filter:blur(8px);font-size:.88rem;
+}
+.site-foot{
+  text-align:center;padding:48px 0 24px;font-family:"JetBrains Mono",monospace;
+  font-size:.62rem;color:var(--muted);letter-spacing:.1em;
+}
+@media(max-width:900px){
+  .rail{
+    transform:translateX(-100%);transition:transform .28s ease;
+    width:min(86vw,280px);
+  }
+  .rail.open{transform:translateX(0)}
+  .rail-toggle{display:inline-flex}
+  .main{margin-left:0;padding:0 42px 72px 16px}
+  .chapter-dots{padding:8px 4px 8px 6px}
+  .chapter-dots a{min-width:26px;height:26px;font-size:.54rem}
+}
+@media(min-width:901px){
+  .rail-toggle,.rail-backdrop{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+<canvas id="bg-net" aria-hidden="true"></canvas>
+<div class="noise" aria-hidden="true"></div>
+<div class="scan-beam" aria-hidden="true"></div>
+<div class="read-progress" id="read-progress"></div>
+<nav class="chapter-dots" id="chapter-dots" aria-label="章节导航"></nav><div id="boot" class="boot">
+  <canvas id="boot-matrix" class="boot-matrix"></canvas>
+  <div class="boot-inner">
+    <p class="boot-tag">DISSECT ANALYSIS TERMINAL v2</p>
+    <h1 class="boot-title">赤心巡天</h1>
+    <div class="boot-bar"><span id="boot-fill"></span></div>
+    <p class="boot-hint">载入神经图谱 · 拓扑引擎 · 数据模块</p>
+  </div>
+</div>
+<aside class="rail" id="rail" aria-label="章节导航">
+  <div class="rail-brand">
+    <span class="rail-logo">章节索引</span>
+    <span class="rail-sub">CHAPTER NAV</span>
+  </div>
+  <p class="rail-meta">赤心巡天 · 系统全拆解</p>
+  <nav class="rail-nav"><a class="rail-link" href="#deck-497000549" data-ch="497000549"><span class="rail-num">01</span><span class="rail-t">第一章 他惊人的毅力并无观众</span></a></nav>
+  <p class="rail-foot">2026-05-26 22:23<br/>1 章已拆解</p>
+</aside>
+<button type="button" class="rail-toggle" id="rail-toggle" aria-expanded="false" aria-controls="rail">
+  <span class="rail-toggle-icon">☰</span><span class="rail-toggle-label">章节</span>
+</button>
+<div class="rail-backdrop" id="rail-backdrop" hidden></div>
+<div id="app" class="app hidden">
+  <main class="main">
+    <header class="book-hud">
+      <p class="eyebrow">NOVEL DISSECT · 系统全拆解</p>
+      <h1>赤心巡天</h1>
+      <div class="hud-stats">
+        <div class="stat"><span class="k">PLATFORM</span><span class="v">起点中文网</span></div>
+        <div class="stat"><span class="k">AUTHOR</span><span class="v">情何以甚</span></div>
+        <div class="stat"><span class="k">CHAPTERS</span><span class="v">1</span></div>
+        <div class="stat"><span class="k">EXPORT</span><span class="v">2026-05-26 22:23</span></div>
+      </div></header><section class="chapter-deck" id="deck-497000549" data-chapter="497000549"><div class="deck-head">
+  <span class="deck-idx">CHAPTER 01</span>
+  <h2 class="deck-title">第一章 他惊人的毅力并无观众</h2>
+  <p class="deck-sub">拖拽旋转 3D 神经图谱 · 点击节点跳转详情 · 模块支持一键复制</p>
+  <div class="deck-meter">
+    <span>26 核心维度</span>
+    <span class="m-accent">1 可迁移</span>
+    <span>1 原文摘录</span>
+  </div>
+</div>
+<div class="viz-dual" data-ch="497000549">
+  <div class="viz-tabs">
+    <button type="button" class="viz-tab active" data-viz="3d" data-ch="497000549">◆ 3D 神经图谱</button>
+    <button type="button" class="viz-tab" data-viz="2d" data-ch="497000549">◇ 2D 拓扑蓝图</button>
+  </div>
+  <div class="viz-frame viz-3d-panel active">
+    <div class="frame-corners"><i class="fc tl"></i><i class="fc tr"></i><i class="fc bl"></i><i class="fc br"></i></div>
+    <canvas class="mind-canvas-3d" data-ch="497000549"></canvas>
+    <div class="node-hud-3d hidden" id="hud-3d-497000549">
+      <span class="nh-label"></span><span class="nh-preview"></span>
+    </div>
+    <div class="graph-fallback-3d hidden" id="fb-3d-497000549">
+      <p>3D 引擎未加载（需联网）<br/>请刷新或检查网络，亦可切换「2D 拓扑蓝图」</p>
+    </div>
+    <div class="viz-hud">
+      <span class="viz-tag">NEURAL SPHERE · 3D</span>
+      <span class="viz-live">● DRAG · SCROLL · CLICK</span>
+    </div>
+  </div>
+  <div class="viz-frame viz-2d-panel">
+    <svg class="topo-svg" id="topo-497000549" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="viz-hud">
+      <span class="viz-tag">SYNTH TOPOLOGY · 2D</span>
+      <span class="viz-live">● LIVE</span>
+    </div>
+  </div>
+</div><article class="spotlight" id="field-497000549-takeaway" data-node="takeaway"><div class="spotlight-rim"></div><header><span class="spot-tag">★ 可迁移写法</span><h3>可迁移到我书的写法 ⭐</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></header><div class="spot-body">【写法】可复制步骤：先铺宏大战斗场面（高空陨落、道术对轰），用快节奏动作描写和感官冲击（光、声、元气涌动）建立紧张感；再在战斗高潮后突然转折（李一介入秒杀），制造反差；最后聚焦小人物（乞儿）的微观视角，用细节（数步子、碎肉中摸瓶）收束情绪，形成“大场面→小希望”的节奏。章末以“找到开脉丹”作为希望钩子，但保留丹药破损的悬念。<br>【原文】「他惊人的毅力并无观众。」（章末旁白，点题并强化乞儿孤独坚持的形象）；「一个瓶子！翻开那团无法认出原貌的血肉，发现了这一个半截的玉质瓶子！」（乞儿摸索碎肉时，细节描写制造发现感）。<br>【适用】玄幻/修仙题材开篇，尤其需要快速建立世界观（高阶战斗）并引入主角（底层逆袭）时。适合第一章用“旁观者”视角让主角目睹大事件，再通过捡漏获得金手指。<br>【慎用】不宜直接照搬“乞丐捡尸”设定（需差异化）；战斗描写篇幅较长，若读者耐心不足可适当压缩；主角全程无行动，需确保后续章节快速进入主角视角。</div></article><div class="bento"><article class="mod" id="field-497000549-chapterKind" data-node="chapterKind"><div class="mod-head"><span class="mod-id">本章性质</span><h3>本章性质</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">正文章节</div></article><article class="mod" id="field-497000549-oneLinePlot" data-node="oneLinePlot"><div class="mod-head"><span class="mod-id">一句话剧情…</span><h3>一句话剧情（What）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈被围杀陨落，其祝融火种爆炸，被白衣剑客李一收束为烟花；破观中濒死的乞儿在战斗后爬出，从碎肉中找到半瓶开脉丹。</div></article><article class="mod" id="field-497000549-timePlace" data-node="timePlace"><div class="mod-head"><span class="mod-id">时间·地点…</span><h3>时间·地点·场景（When/Where）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">庄国枫林城郊野，无名破观外，白日（晴日忽暗→战斗持续至天边寒光至）。</div></article><article class="mod" id="field-497000549-povFocus" data-node="povFocus"><div class="mod-head"><span class="mod-id">叙事焦点（…</span><h3>叙事焦点（Who）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">全知/旁白为主</div></article><article class="mod" id="field-497000549-appearingRoles" data-node="appearingRoles"><div class="mod-head"><span class="mod-id">出场人物与…</span><h3>出场人物与关系</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈（焰袍男子，庄国/秦楚大战失败方核心）、公羊白（秦国名门，玄冰地牢）、墨惊羽（墨门，刀羽飞鹰）、李一（白衣剑客，一剑斩首）、乞儿（主角，濒死）、其他乞丐（被万流箭雨误杀）。</div></article><article class="mod" id="field-497000549-wantNeed" data-node="wantNeed"><div class="mod-head"><span class="mod-id">角色想要什…</span><h3>角色想要什么（动机）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈：求死得其所，不愿死于无名之地；公羊白/墨惊羽：完成嬴武命令，杀左光烈；李一：收束祝融火种，独赏烟花；乞儿：活下去，找到开脉丹。</div></article><article class="mod" id="field-497000549-conflictType" data-node="conflictType"><div class="mod-head"><span class="mod-id">冲突类型</span><h3>冲突类型</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">人与人</div></article><article class="mod" id="field-497000549-obstacle" data-node="obstacle"><div class="mod-head"><span class="mod-id">阻碍与对抗</span><h3>阻碍与对抗</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈以沸血燃魂、焰花焚城等禁术拼死反抗，公羊白、墨惊羽联手围杀，九煞玄阴阵压制；乞儿病弱濒死，移动艰难。</div></article><article class="mod" id="field-497000549-turnPoint" data-node="turnPoint"><div class="mod-head"><span class="mod-id">转折/反转点</span><h3>转折/反转点</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈被李一一剑斩首，战斗戛然而止；李一收束祝融火种爆炸为烟花，独赏后离去；乞儿从碎肉中找到开脉丹。</div></article><article class="mod" id="field-497000549-foreshadow" data-node="foreshadow"><div class="mod-head"><span class="mod-id">伏笔与回收</span><h3>伏笔与回收</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈体内祝融火种膨胀（为爆炸伏笔）；李一令牌与霸气声音“两清”（暗示其身份与交易）；乞儿“听”到战斗全过程（为后续觉醒铺垫）。</div></article><article class="mod" id="field-497000549-arcPhase" data-node="arcPhase"><div class="mod-head"><span class="mod-id">起承转合（…</span><h3>起承转合（本章功能）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">起（开端/入局）</div></article><article class="mod" id="field-497000549-sceneFlow" data-node="sceneFlow"><div class="mod-head"><span class="mod-id">场景节拍（…</span><h3>场景节拍（2～4 步）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">1. 高空战斗：左光烈被九煞玄阴阵击坠；2. 破观前围杀：公羊白、墨惊羽轮番攻击，左光烈燃烧反抗；3. 李一介入：一剑斩首，收束烟花；4. 乞儿爬出：找到开脉丹。</div></article><article class="mod" id="field-497000549-paceSpeed" data-node="paceSpeed"><div class="mod-head"><span class="mod-id">叙述节奏</span><h3>叙述节奏</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">快</div></article><article class="mod" id="field-497000549-infoDensity" data-node="infoDensity"><div class="mod-head"><span class="mod-id">信息密度</span><h3>信息密度</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">高（信息很满）</div></article><article class="mod" id="field-497000549-tension" data-node="tension"><div class="mod-head"><span class="mod-id">张力走向</span><h3>张力走向</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">升</div></article><article class="mod" id="field-497000549-emotionCurve" data-node="emotionCurve"><div class="mod-head"><span class="mod-id">读者情绪走向</span><h3>读者情绪走向</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">压抑→释放</div></article><article class="mod" id="field-497000549-anticipation" data-node="anticipation"><div class="mod-head"><span class="mod-id">期待感（为…</span><h3>期待感（为何想继续看）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">乞儿得到开脉丹后能否逆袭？左光烈与李一的背景？庄国与秦楚的恩怨？</div></article><article class="mod" id="field-497000549-readerHighPoint" data-node="readerHighPoint"><div class="mod-head"><span class="mod-id">情绪嗨点/…</span><h3>情绪嗨点/爽虐点</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">左光烈燃魂反抗的悲壮；李一收束烟花独赏的冷酷与诗意；乞儿在碎肉中摸到开脉丹的绝境希望。</div></article><article class="mod" id="field-497000549-sellingPoint" data-node="sellingPoint"><div class="mod-head"><span class="mod-id">卖点/金手…</span><h3>卖点/金手指露出</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">暗示</div></article><article class="mod" id="field-497000549-shapingMethods" data-node="shapingMethods"><div class="mod-head"><span class="mod-id">塑造手法（…</span><h3>塑造手法（可多选）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">行动立人设、反差对比、细节符号、世界观/规则展示</div></article><article class="mod" id="field-497000549-infoGap" data-node="infoGap"><div class="mod-head"><span class="mod-id">信息差/悬…</span><h3>信息差/悬念设计</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">李一的身份与令牌“两清”含义；左光烈与庄国、秦国的恩怨细节；乞儿为何能活下来（供桌下未被波及）。</div></article><article class="mod" id="field-497000549-linkPriorChapter" data-node="linkPriorChapter"><div class="mod-head"><span class="mod-id">与上章衔接</span><h3>与上章衔接</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">首章，无前序。</div></article><article class="mod" id="field-497000549-chapterHook" data-node="chapterHook"><div class="mod-head"><span class="mod-id">章末拉力（…</span><h3>章末拉力（点下一章的理由）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">乞儿拿到开脉丹，但丹药只剩半瓶且瓶身破损，他能否服用？后续如何改变命运？</div></article><article class="mod" id="field-497000549-writingTechniques" data-node="writingTechniques"><div class="mod-head"><span class="mod-id">写作手法（…</span><h3>写作手法（可多选）</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">悬念、反差、情绪共鸣、对比/蒙太奇</div></article><article class="mod" id="field-497000549-dialogueHighlight" data-node="dialogueHighlight"><div class="mod-head"><span class="mod-id">金句/对话…</span><h3>金句/对话亮点</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">「吵死人了。」（李一斩首后冷漠回应）；「此无名之地，怎么有资格埋葬我左光烈！？」（左光烈临死前的尊严）。</div></article><article class="mod" id="field-497000549-dontCopy" data-node="dontCopy"><div class="mod-head"><span class="mod-id">不宜照抄</span><h3>不宜照抄</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">乞丐捡尸+开脉丹的设定过于经典，需加入独特限制（如丹药有毒、被标记等）；左光烈燃魂自爆的悲壮感若处理不好易成套路。</div></article><article class="mod excerpt-mod" id="field-497000549-excerpts" data-node="excerpts"><div class="mod-head"><span class="mod-id">更多原文摘录</span><h3>更多原文摘录</h3><button type="button" class="mod-copy" aria-label="复制">复制</button></div><div class="mod-body">「太阳悬在高天，将它的光和热，不偏不倚洒落人间。不分老幼，不辨贵贱。大爱如无情。」（开篇环境描写，奠定冷酷基调）；「他缓慢地、缓慢地蹲了下来，蹲着太费力，所以他索性坐下。」（乞儿动作细节，强化虚弱感）。</div></article></div></section>    <footer class="site-foot">NOVEL BENCHMARK · DISSECT TERMINAL · OFFLINE READY</footer>
+  </main>
+</div>
+<script type="application/json" id="report-data">{"author":"情何以甚","bookTitle":"赤心巡天","chapters":[{"id":"497000549","index":1,"nodes":[{"accent":false,"excerpt":false,"id":"chapterKind","label":"本章性质","shortLabel":"本章性质","value":"正文章节"},{"accent":false,"excerpt":false,"id":"oneLinePlot","label":"一句话剧情（What）","shortLabel":"一句话剧情…","value":"左光烈被围杀陨落，其祝融火种爆炸，被白衣剑客李一收束为烟花；破观中濒死的乞儿在战斗后爬出，从碎肉中找到半瓶开脉丹。"},{"accent":false,"excerpt":false,"id":"timePlace","label":"时间·地点·场景（When/Where）","shortLabel":"时间·地点…","value":"庄国枫林城郊野，无名破观外，白日（晴日忽暗→战斗持续至天边寒光至）。"},{"accent":false,"excerpt":false,"id":"povFocus","label":"叙事焦点（Who）","shortLabel":"叙事焦点（…","value":"全知/旁白为主"},{"accent":false,"excerpt":false,"id":"appearingRoles","label":"出场人物与关系","shortLabel":"出场人物与…","value":"左光烈（焰袍男子，庄国/秦楚大战失败方核心）、公羊白（秦国名门，玄冰地牢）、墨惊羽（墨门，刀羽飞鹰）、李一（白衣剑客，一剑斩首）、乞儿（主角，濒死）、其他乞丐（被万流箭雨误杀）。"},{"accent":false,"excerpt":false,"id":"wantNeed","label":"角色想要什么（动机）","shortLabel":"角色想要什…","value":"左光烈：求死得其所，不愿死于无名之地；公羊白/墨惊羽：完成嬴武命令，杀左光烈；李一：收束祝融火种，独赏烟花；乞儿：活下去，找到开脉丹。"},{"accent":false,"excerpt":false,"id":"conflictType","label":"冲突类型","shortLabel":"冲突类型","value":"人与人"},{"accent":false,"excerpt":false,"id":"obstacle","label":"阻碍与对抗","shortLabel":"阻碍与对抗","value":"左光烈以沸血燃魂、焰花焚城等禁术拼死反抗，公羊白、墨惊羽联手围杀，九煞玄阴阵压制；乞儿病弱濒死，移动艰难。"},{"accent":false,"excerpt":false,"id":"turnPoint","label":"转折/反转点","shortLabel":"转折/反转点","value":"左光烈被李一一剑斩首，战斗戛然而止；李一收束祝融火种爆炸为烟花，独赏后离去；乞儿从碎肉中找到开脉丹。"},{"accent":false,"excerpt":false,"id":"foreshadow","label":"伏笔与回收","shortLabel":"伏笔与回收","value":"左光烈体内祝融火种膨胀（为爆炸伏笔）；李一令牌与霸气声音“两清”（暗示其身份与交易）；乞儿“听”到战斗全过程（为后续觉醒铺垫）。"},{"accent":false,"excerpt":false,"id":"arcPhase","label":"起承转合（本章功能）","shortLabel":"起承转合（…","value":"起（开端/入局）"},{"accent":false,"excerpt":false,"id":"sceneFlow","label":"场景节拍（2～4 步）","shortLabel":"场景节拍（…","value":"1. 高空战斗：左光烈被九煞玄阴阵击坠；2. 破观前围杀：公羊白、墨惊羽轮番攻击，左光烈燃烧反抗；3. 李一介入：一剑斩首，收束烟花；4. 乞儿爬出：找到开脉丹。"},{"accent":false,"excerpt":false,"id":"paceSpeed","label":"叙述节奏","shortLabel":"叙述节奏","value":"快"},{"accent":false,"excerpt":false,"id":"infoDensity","label":"信息密度","shortLabel":"信息密度","value":"高（信息很满）"},{"accent":false,"excerpt":false,"id":"tension","label":"张力走向","shortLabel":"张力走向","value":"升"},{"accent":false,"excerpt":false,"id":"emotionCurve","label":"读者情绪走向","shortLabel":"读者情绪走向","value":"压抑→释放"},{"accent":false,"excerpt":false,"id":"anticipation","label":"期待感（为何想继续看）","shortLabel":"期待感（为…","value":"乞儿得到开脉丹后能否逆袭？左光烈与李一的背景？庄国与秦楚的恩怨？"},{"accent":false,"excerpt":false,"id":"readerHighPoint","label":"情绪嗨点/爽虐点","shortLabel":"情绪嗨点/…","value":"左光烈燃魂反抗的悲壮；李一收束烟花独赏的冷酷与诗意；乞儿在碎肉中摸到开脉丹的绝境希望。"},{"accent":false,"excerpt":false,"id":"sellingPoint","label":"卖点/金手指露出","shortLabel":"卖点/金手…","value":"暗示"},{"accent":false,"excerpt":false,"id":"shapingMethods","label":"塑造手法（可多选）","shortLabel":"塑造手法（…","value":"行动立人设、反差对比、细节符号、世界观/规则展示"},{"accent":false,"excerpt":false,"id":"infoGap","label":"信息差/悬念设计","shortLabel":"信息差/悬…","value":"李一的身份与令牌“两清”含义；左光烈与庄国、秦国的恩怨细节；乞儿为何能活下来（供桌下未被波及）。"},{"accent":false,"excerpt":false,"id":"linkPriorChapter","label":"与上章衔接","shortLabel":"与上章衔接","value":"首章，无前序。"},{"accent":false,"excerpt":false,"id":"chapterHook","label":"章末拉力（点下一章的理由）","shortLabel":"章末拉力（…","value":"乞儿拿到开脉丹，但丹药只剩半瓶且瓶身破损，他能否服用？后续如何改变命运？"},{"accent":false,"excerpt":false,"id":"writingTechniques","label":"写作手法（可多选）","shortLabel":"写作手法（…","value":"悬念、反差、情绪共鸣、对比/蒙太奇"},{"accent":false,"excerpt":false,"id":"dialogueHighlight","label":"金句/对话亮点","shortLabel":"金句/对话…","value":"「吵死人了。」（李一斩首后冷漠回应）；「此无名之地，怎么有资格埋葬我左光烈！？」（左光烈临死前的尊严）。"},{"accent":true,"excerpt":false,"id":"takeaway","label":"可迁移到我书的写法 ⭐","shortLabel":"可迁移到我…","value":"【写法】可复制步骤：先铺宏大战斗场面（高空陨落、道术对轰），用快节奏动作描写和感官冲击（光、声、元气涌动）建立紧张感；再在战斗高潮后突然转折（李一介入秒杀），制造反差；最后聚焦小人物（乞儿）的微观视角，用细节（数步子、碎肉中摸瓶）收束情绪，形成“大场面→小希望”的节奏。章末以“找到开脉丹”作为希望钩子，但保留丹药破损的悬念。\n【原文】「他惊人的毅力并无观众。」（章末旁白，点题并强化乞儿孤独坚持的形象）；「一个瓶子！翻开那团无法认出原貌的血肉，发现了这一个半截的玉质瓶子！」（乞儿摸索碎肉时，细节描写制造发现感）。\n【适用】玄幻/修仙题材开篇，尤其需要快速建立世界观（高阶战斗）并引入主角（底层逆袭）时。适合第一章用“旁观者”视角让主角目睹大事件，再通过捡漏获得金手指。\n【慎用】不宜直接照搬“乞丐捡尸”设定（需差异化）；战斗描写篇幅较长，若读者耐心不足可适当压缩；主角全程无行动，需确保后续章节快速进入主角视角。"},{"accent":false,"excerpt":false,"id":"dontCopy","label":"不宜照抄","shortLabel":"不宜照抄","value":"乞丐捡尸+开脉丹的设定过于经典，需加入独特限制（如丹药有毒、被标记等）；左光烈燃魂自爆的悲壮感若处理不好易成套路。"},{"accent":false,"excerpt":true,"id":"excerpts","label":"更多原文摘录","shortLabel":"更多原文摘录","value":"「太阳悬在高天，将它的光和热，不偏不倚洒落人间。不分老幼，不辨贵贱。大爱如无情。」（开篇环境描写，奠定冷酷基调）；「他缓慢地、缓慢地蹲了下来，蹲着太费力，所以他索性坐下。」（乞儿动作细节，强化虚弱感）。"}],"title":"第一章 他惊人的毅力并无观众"}],"exportedAt":"2026-05-26 22:23","goalLabel":"系统全拆解","platform":"起点中文网","stages":[],"transferable":[]}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var REPORT=JSON.parse(document.getElementById("report-data").textContent);
+  var reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var boot=document.getElementById("boot");
+  var app=document.getElementById("app");
+  var progress=document.getElementById("read-progress");
+
+  function makeGlowTex(col){
+    var c=document.createElement("canvas");c.width=128;c.height=128;
+    var g=c.getContext("2d");
+    var gr=g.createRadialGradient(64,64,0,64,64,64);
+    var mid=col.replace(/,\s*[\d.]+\s*\)\s*$/,",0.35)");
+    gr.addColorStop(0,col);gr.addColorStop(0.42,mid);
+    gr.addColorStop(1,"transparent");
+    g.fillStyle=gr;g.fillRect(0,0,128,128);
+    return new THREE.CanvasTexture(c);
+  }
+
+  /* 背景粒子 */
+  (function(){
+    var c=document.getElementById("bg-net");if(!c)return;
+    var x=c.getContext("2d"),pts=[],W,H,mx=innerWidth/2,my=innerHeight/2;
+    function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+    resize();addEventListener("resize",resize);
+    for(var i=0;i<110;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:1+Math.random()*1.5});
+    addEventListener("mousemove",function(e){mx=e.clientX;my=e.clientY;});
+    function tick(){
+      x.fillStyle="rgba(2,4,8,.22)";x.fillRect(0,0,W,H);
+      pts.forEach(function(p){
+        p.x+=p.vx;p.y+=p.vy;
+        if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+        var dx=p.x-mx,dy=p.y-my,d2=dx*dx+dy*dy;
+        if(d2<18000){p.x+=dx*.015;p.y+=dy*.015;}
+      });
+      for(var i=0;i<pts.length;i++){
+        for(var j=i+1;j<pts.length;j++){
+          var a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;
+          if(d<12000){x.strokeStyle="rgba(45,212,191,"+(0.18-d/12000)+")";x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}
+        }
+        x.beginPath();x.arc(pts[i].x,pts[i].y,pts[i].r,0,7);
+        x.fillStyle="rgba(56,189,248,.55)";x.fill();
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+  })();
+
+  /* 启动矩阵雨 */
+  (function(){
+    var c=document.getElementById("boot-matrix");if(!c||reduced)return;
+    var x=c.getContext("2d"),cols=[],W,H;
+    var chars="01アイウエオ拆书分析DISSECT";
+    function resize(){W=c.width=c.offsetWidth;H=c.height=c.offsetHeight;cols=[];var fs=14;for(var i=0;i<W/fs;i++)cols.push(Math.random()*H);}
+    resize();
+    function draw(){
+      x.fillStyle="rgba(2,4,8,.12)";x.fillRect(0,0,W,H);
+      x.fillStyle="rgba(45,212,191,.35)";x.font="12px JetBrains Mono,monospace";
+      for(var i=0;i<cols.length;i++){
+        var t=chars[Math.floor(Math.random()*chars.length)];
+        x.fillText(t,i*14,cols[i]);
+        cols[i]+=14;if(cols[i]>H&&Math.random()>.975)cols[i]=0;
+      }
+      if(!boot.classList.contains("hide"))requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  setTimeout(function(){
+    boot.classList.add("hide");
+    app.classList.remove("hidden");
+    setTimeout(function(){boot.style.display="none";},950);
+  },reduced?400:2200);
+
+  /* 侧栏抽屉（窄屏） */
+  var rail=document.getElementById("rail");
+  var railToggle=document.getElementById("rail-toggle");
+  var railBackdrop=document.getElementById("rail-backdrop");
+  function setRailOpen(open){
+    if(!rail)return;
+    rail.classList.toggle("open",open);
+    if(railBackdrop)railBackdrop.hidden=!open;
+    if(railToggle)railToggle.setAttribute("aria-expanded",open?"true":"false");
+  }
+  if(railToggle){
+    railToggle.addEventListener("click",function(){setRailOpen(!rail.classList.contains("open"));});
+  }
+  if(railBackdrop){
+    railBackdrop.addEventListener("click",function(){setRailOpen(false);});
+  }
+  document.querySelectorAll(".rail-link").forEach(function(a){
+    a.addEventListener("click",function(){
+      if(innerWidth<=900)setRailOpen(false);
+    });
+  });
+
+  /* 阅读进度 + 章节锚点 */
+  var dots=document.getElementById("chapter-dots");
+  if(dots){
+    REPORT.chapters.forEach(function(ch){
+      var a=document.createElement("a");
+      a.href="#deck-"+ch.id;a.title=ch.title;
+      a.setAttribute("data-ch",ch.id);
+      a.textContent=String(ch.index).padStart(2,"0");
+      dots.appendChild(a);
+    });
+  }
+  function navTargets(){
+    var list=REPORT.chapters.map(function(ch){
+      return{id:ch.id,el:document.getElementById("deck-"+ch.id)};
+    });
+    document.querySelectorAll("[id^='deck-stage-']").forEach(function(el){
+      list.push({id:el.getAttribute("data-chapter"),el:el});
+    });
+    var harvest=document.getElementById("deck-harvest");
+    if(harvest)list.push({id:"harvest",el:harvest});
+    return list.filter(function(x){return x.el;});
+  }
+  function onScroll(){
+    var sh=document.documentElement.scrollHeight-innerHeight,y=scrollY;
+    if(progress&&sh>0)progress.style.width=(y/sh*100)+"%";
+    var cur=null;
+    navTargets().forEach(function(t){
+      if(t.el.offsetTop<=y+120)cur=t.id;
+    });
+    document.querySelectorAll(".rail-link").forEach(function(a){
+      a.classList.toggle("active",a.getAttribute("data-ch")===cur);
+    });
+    if(dots)dots.querySelectorAll("a").forEach(function(a){
+      a.classList.toggle("active",a.getAttribute("data-ch")===cur);
+    });
+    var activeRail=document.querySelector(".rail-link.active");
+    if(activeRail&&rail){
+      var nav=rail.querySelector(".rail-nav");
+      if(nav){
+        var linkTop=activeRail.offsetTop,navScroll=nav.scrollTop,navH=nav.clientHeight;
+        if(linkTop<navScroll+20||linkTop>navScroll+navH-40){
+          activeRail.scrollIntoView({block:"nearest",behavior:reduced?"auto":"smooth"});
+        }
+      }
+    }
+  }
+  addEventListener("scroll",onScroll);onScroll();
+
+  function focusModule(chId,nodeId){
+    document.querySelectorAll(".mod.focus,.spotlight.focus").forEach(function(e){e.classList.remove("focus");});
+    var el=document.getElementById("field-"+chId+"-"+nodeId);
+    if(el){el.classList.add("focus");el.scrollIntoView({behavior: reduced?"auto":"smooth",block:"center"});}
+  }
+
+  document.querySelectorAll(".viz-tab").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var dual=btn.closest(".viz-dual");
+      dual.querySelectorAll(".viz-tab").forEach(function(b){b.classList.toggle("active",b===btn);});
+      var v=btn.getAttribute("data-viz");
+      dual.querySelector(".viz-3d-panel").classList.toggle("active",v==="3d");
+      dual.querySelector(".viz-2d-panel").classList.toggle("active",v==="2d");
+      var ch=btn.getAttribute("data-ch");
+      var s=scenes3d[ch];if(s&&s.resize)s.resize();
+    });
+  });
+
+  document.querySelectorAll(".mod-copy").forEach(function(btn){
+    btn.addEventListener("click",function(e){
+      e.stopPropagation();
+      var body=btn.closest(".mod,.spotlight").querySelector(".mod-body,.spot-body");
+      var t=body?body.innerText:"";
+      if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){btn.textContent="已复制";setTimeout(function(){btn.textContent="复制";},1200);});
+    });
+  });
+
+  var modObs=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){if(en.isIntersecting)en.target.classList.add("visible");});
+  },{threshold:0.08,rootMargin:"0px 0px -40px 0px"});
+  document.querySelectorAll(".mod").forEach(function(m){modObs.observe(m);});
+
+  /* ── 3D 神经图谱（增强） ── */
+  var scenes3d={};
+  var has3d=typeof THREE!=="undefined";
+
+  function fibSphere(i,n,r){
+    var phi=Math.acos(1-2*(i+0.5)/n),theta=Math.PI*(1+Math.sqrt(5))*i;
+    return new THREE.Vector3(r*Math.sin(phi)*Math.cos(theta),r*Math.cos(phi)*.8,r*Math.sin(phi)*Math.sin(theta));
+  }
+
+  function addFlowDot(group,from,to,color){
+    var dot=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:makeGlowTex(color),transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false
+    }));
+    dot.scale.set(0.35,0.35,1);
+    dot.userData={from:from.clone(),to:to.clone(),t:Math.random()};
+    group.add(dot);
+    return dot;
+  }
+
+  function init3d(chId,canvas){
+    if(scenes3d[chId])return scenes3d[chId];
+    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    var scene=new THREE.Scene();
+    scene.fog=new THREE.FogExp2(0x020408,0.032);
+    var camera=new THREE.PerspectiveCamera(48,1,0.1,200);
+    camera.position.set(0,1.2,13);
+    scene.add(new THREE.AmbientLight(0x334155,.5));
+    var pl1=new THREE.PointLight(0x2dd4bf,1.4,50);pl1.position.set(5,8,10);scene.add(pl1);
+    var pl2=new THREE.PointLight(0x818cf8,.9,50);pl2.position.set(-8,0,8);scene.add(pl2);
+    var pl3=new THREE.PointLight(0xfbbf24,.5,35);pl3.position.set(0,-6,5);scene.add(pl3);
+    var stars=new THREE.BufferGeometry();
+    var sp=new Float32Array(2400);
+    for(var i=0;i<sp.length;i++)sp[i]=(Math.random()-.5)*100;
+    stars.setAttribute("position",new THREE.BufferAttribute(sp,3));
+    scene.add(new THREE.Points(stars,new THREE.PointsMaterial({color:0x38bdf8,size:0.07,transparent:true,opacity:.5,blending:THREE.AdditiveBlending})));
+    var graphGroup=new THREE.Group();
+    scene.add(graphGroup);
+    var orbitRing=new THREE.Mesh(
+      new THREE.TorusGeometry(4.5,0.025,10,80),
+      new THREE.MeshBasicMaterial({color:0x2dd4bf,transparent:true,opacity:0.4})
+    );
+    orbitRing.rotation.x=Math.PI/2;
+    graphGroup.add(orbitRing);
+    var s={
+      renderer:renderer,scene:scene,camera:camera,graphGroup:graphGroup,orbitRing:orbitRing,
+      nodeMeshes:[],flowDots:[],built:false,raf:0,
+      rotY:0,rotX:0.1,targetRotY:0,targetRotX:0.1,dragging:false,lastX:0,lastY:0,
+      autoSpin:!reduced,pulse:0,chId:chId,
+      resize:function(){
+        var w=canvas.clientWidth,h=canvas.clientHeight;
+        if(w<1||h<1)return;
+        renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+      },
+      raycaster:new THREE.Raycaster(),mouse:new THREE.Vector2(),hovered:null
+    };
+    scenes3d[chId]=s;s.resize();
+    return s;
+  }
+
+  function buildGraph3d(s,ch){
+    while(s.graphGroup.children.length>1)s.graphGroup.remove(s.graphGroup.children[1]);
+    s.nodeMeshes=[];s.flowDots=[];
+    if(!ch.nodes.length)return;
+    var core=new THREE.Group();
+    core.add(new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.75,1),
+      new THREE.MeshBasicMaterial({color:0x2dd4bf,wireframe:true,transparent:true,opacity:0.85})
+    ));
+    core.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.45,32,32),
+      new THREE.MeshPhysicalMaterial({
+        color:0x0e7490,emissive:0x2dd4bf,emissiveIntensity:0.65,
+        metalness:0.4,roughness:0.25,transparent:true,opacity:0.8,clearcoat:0.6,clearcoatRoughness:0.2
+      })
+    ));
+    var knot=new THREE.Mesh(
+      new THREE.TorusKnotGeometry(0.5,0.07,96,12,2,3),
+      new THREE.MeshBasicMaterial({color:0x818cf8,wireframe:true,transparent:true,opacity:0.22})
+    );
+    core.add(knot);
+    var cvs=document.createElement("canvas");cvs.width=512;cvs.height=128;
+    var ctx=cvs.getContext("2d");
+    ctx.font='600 26px "Noto Sans SC",sans-serif';ctx.fillStyle="#2dd4bf";ctx.textAlign="center";
+    var t=ch.title.length>12?ch.title.slice(0,11)+"\u2026":ch.title;
+    ctx.fillText(t,256,72);
+    var spr=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cvs),transparent:true}));
+    spr.scale.set(3.6,0.9,1);spr.position.y=1.4;
+    core.add(spr);
+    s.graphGroup.add(core);
+    var n=ch.nodes.length,R=3.5+Math.min(n*0.065,2.2);
+    ch.nodes.forEach(function(node,i){
+      var pos=fibSphere(i,n,R);
+      var isA=node.accent,isE=node.excerpt;
+      var col=isA?0xfbbf24:(isE?0x64748b:0x38bdf8);
+      var em=isA?0xf59e0b:(isE?0x334155:0x0891b2);
+      var mesh=new THREE.Mesh(
+        new THREE.SphereGeometry(isA?0.28:0.19,20,20),
+        new THREE.MeshPhysicalMaterial({
+          color:col,emissive:em,emissiveIntensity:isA?1:0.5,
+          metalness:0.55,roughness:0.3,transparent:true,opacity:0.95
+        })
+      );
+      mesh.position.copy(pos);mesh.userData=node;
+      s.graphGroup.add(mesh);s.nodeMeshes.push(mesh);
+      var halo=new THREE.Sprite(new THREE.SpriteMaterial({
+        map:makeGlowTex(isA?"rgba(251,191,36,0.9)":"rgba(45,212,191,0.85)"),
+        transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.7
+      }));
+      halo.scale.set(isA?1.2:0.9,isA?1.2:0.9,1);halo.position.copy(pos);
+      s.graphGroup.add(halo);
+      var pts=[new THREE.Vector3(0,0,0),pos];
+      s.graphGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.5})
+      ));
+      if(!reduced)s.flowDots.push(addFlowDot(s.graphGroup,new THREE.Vector3(0,0,0),pos,isA?"rgba(251,191,36,0.95)":"rgba(45,212,191,0.9)"));
+    });
+    for(var j=0;j<n;j++){
+      var a=fibSphere(j,n,R),b=fibSphere((j+1)%n,n,R);
+      s.graphGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([a,b]),
+        new THREE.LineBasicMaterial({color:0x1e3a5f,transparent:true,opacity:0.55})
+      ));
+      if(!reduced)s.flowDots.push(addFlowDot(s.graphGroup,a,b,"rgba(129,140,248,0.7)"));
+    }
+    s.built=true;
+  }
+
+  function pick3d(s,cx,cy,canvas){
+    var r=canvas.getBoundingClientRect();
+    s.mouse.x=((cx-r.left)/r.width)*2-1;s.mouse.y=-((cy-r.top)/r.height)*2+1;
+    s.raycaster.setFromCamera(s.mouse,s.camera);
+    var hits=s.raycaster.intersectObjects(s.nodeMeshes);
+    return hits.length?hits[0].object:null;
+  }
+
+  function showHud3d(chId,node){
+    var hud=document.getElementById("hud-3d-"+chId);
+    if(!hud)return;
+    if(!node){hud.classList.add("hidden");return;}
+    hud.classList.remove("hidden");
+    hud.querySelector(".nh-label").textContent=node.label;
+    hud.querySelector(".nh-preview").textContent=node.value.slice(0,150)+(node.value.length>150?"\u2026":"");
+  }
+
+  function animate3d(s){
+    if(s.raf)return;
+    function loop(){
+      s.raf=requestAnimationFrame(loop);
+      s.pulse+=0.026;
+      if(s.autoSpin&&!s.dragging)s.targetRotY+=0.0035;
+      s.rotY+=(s.targetRotY-s.rotY)*0.06;s.rotX+=(s.targetRotX-s.rotX)*0.06;
+      s.graphGroup.rotation.y=s.rotY;s.graphGroup.rotation.x=s.rotX;
+      if(s.orbitRing)s.orbitRing.rotation.z+=0.004;
+      s.nodeMeshes.forEach(function(m,i){
+        if(m.userData.accent){var sc=1+Math.sin(s.pulse+i)*0.12;m.scale.set(sc,sc,sc);}
+      });
+      s.flowDots.forEach(function(d){
+        d.userData.t+=0.008;if(d.userData.t>1)d.userData.t=0;
+        d.position.lerpVectors(d.userData.from,d.userData.to,d.userData.t);
+      });
+      s.renderer.render(s.scene,s.camera);
+    }
+    loop();
+  }
+
+  function stop3d(s){if(s.raf){cancelAnimationFrame(s.raf);s.raf=0;}}
+
+  if(has3d){
+    REPORT.chapters.forEach(function(ch){
+      var canvas=document.querySelector('.mind-canvas-3d[data-ch="'+ch.id+'"]');
+      if(!canvas)return;
+      var s=init3d(ch.id,canvas);
+      buildGraph3d(s,ch);
+      canvas.addEventListener("pointerdown",function(e){
+        s.dragging=true;s.autoSpin=false;s.lastX=e.clientX;s.lastY=e.clientY;
+        try{canvas.setPointerCapture(e.pointerId);}catch(x){}
+      });
+      canvas.addEventListener("pointermove",function(e){
+        var hit=pick3d(s,e.clientX,e.clientY,canvas);
+        if(hit!==s.hovered){s.hovered=hit;showHud3d(ch.id,hit?hit.userData:null);
+          canvas.style.cursor=hit?"pointer":(s.dragging?"grabbing":"grab");}
+        if(!s.dragging)return;
+        s.targetRotY+=(e.clientX-s.lastX)*0.009;
+        s.targetRotX=Math.max(-0.5,Math.min(0.5,s.targetRotX+(e.clientY-s.lastY)*0.005));
+        s.lastX=e.clientX;s.lastY=e.clientY;
+      });
+      canvas.addEventListener("pointerup",function(e){
+        if(!s.dragging)return;
+        s.dragging=false;
+        try{canvas.releasePointerCapture(e.pointerId);}catch(x){}
+        var hit=pick3d(s,e.clientX,e.clientY,canvas);
+        if(hit)focusModule(ch.id,hit.userData.id);
+        setTimeout(function(){s.autoSpin=true;},4000);
+      });
+      canvas.addEventListener("wheel",function(e){
+        e.preventDefault();
+        s.camera.position.z=Math.max(7,Math.min(22,s.camera.position.z+e.deltaY*0.01));
+      },{passive:false});
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(en.isIntersecting){s.resize();animate3d(s);}else stop3d(s);
+        });
+      },{threshold:0.08});
+      io.observe(canvas);
+    });
+    addEventListener("resize",function(){Object.keys(scenes3d).forEach(function(id){scenes3d[id].resize();});});
+  }else{
+    document.querySelectorAll(".graph-fallback-3d").forEach(function(el){el.classList.remove("hidden");});
+  }
+
+  /* 2D SVG */
+  REPORT.chapters.forEach(function(ch){
+    var svg=document.getElementById("topo-"+ch.id);
+    if(!svg||!ch.nodes.length)return;
+    var W=800,H=420,cx=W/2,cy=H/2;
+    var gid="lg-"+ch.id.replace(/[^a-zA-Z0-9]/g,"");
+    var defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+    defs.innerHTML='<linearGradient id="'+gid+'" x1="0%" y1="0%" x2="100%" y2="0%">'
+      +'<stop offset="0%" stop-color="#0891b2" stop-opacity="0.15"/>'
+      +'<stop offset="50%" stop-color="#2dd4bf" stop-opacity="1"/>'
+      +'<stop offset="100%" stop-color="#818cf8" stop-opacity="0.25"/></linearGradient>'
+      +'<filter id="glow-'+gid+'"><feGaussianBlur stdDeviation="2" result="b"/>'
+      +'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+    svg.appendChild(defs);
+    var n=ch.nodes.length,R=Math.min(155,62+n*4);
+    var positions=[{x:cx,y:cy,node:{shortLabel:"CORE",accent:false}}];
+    ch.nodes.forEach(function(node,i){
+      var ang=(i/n)*Math.PI*2-Math.PI/2;
+      positions.push({x:cx+Math.cos(ang)*R,y:cy+Math.sin(ang)*R,node:node});
+    });
+    positions.forEach(function(p,idx){
+      if(idx===0)return;
+      var line=document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1",cx);line.setAttribute("y1",cy);
+      line.setAttribute("x2",p.x);line.setAttribute("y2",p.y);
+      line.setAttribute("class","topo-line");line.setAttribute("stroke","url(#"+gid+")");
+      line.setAttribute("filter","url(#glow-"+gid+")");
+      svg.appendChild(line);
+    });
+    for(var k=1;k<n;k++){
+      var pa=positions[k],pb=positions[k+1];
+      var ring=document.createElementNS("http://www.w3.org/2000/svg","line");
+      ring.setAttribute("x1",pa.x);ring.setAttribute("y1",pa.y);
+      ring.setAttribute("x2",pb.x);ring.setAttribute("y2",pb.y);
+      ring.setAttribute("stroke","#334155");ring.setAttribute("stroke-width","1");
+      ring.setAttribute("stroke-dasharray","5 8");ring.setAttribute("opacity","0.5");
+      svg.appendChild(ring);
+    }
+    if(n>2){
+      var rc=document.createElementNS("http://www.w3.org/2000/svg","line");
+      rc.setAttribute("x1",positions[n].x);rc.setAttribute("y1",positions[n].y);
+      rc.setAttribute("x2",positions[1].x);rc.setAttribute("y2",positions[1].y);
+      rc.setAttribute("stroke","#334155");rc.setAttribute("stroke-dasharray","5 8");rc.setAttribute("opacity","0.5");
+      svg.appendChild(rc);
+    }
+    positions.forEach(function(p,idx){
+      var g=document.createElementNS("http://www.w3.org/2000/svg","g");
+      g.setAttribute("class","topo-node");
+      g.setAttribute("transform","translate("+p.x+","+p.y+")");
+      var isCore=idx===0,isAcc=p.node.accent;
+      var hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+      var r=isCore?30:21,pts=[];
+      for(var h=0;h<6;h++){var ang=Math.PI/3*h-Math.PI/6;pts.push((r*Math.cos(ang))+","+(r*Math.sin(ang)));}
+      hex.setAttribute("points",pts.join(" "));
+      hex.setAttribute("fill",isCore?"rgba(45,212,191,.18)":(isAcc?"rgba(251,191,36,.22)":"rgba(15,23,42,.9)"));
+      hex.setAttribute("stroke",isCore?"#2dd4bf":(isAcc?"#fbbf24":"#38bdf8"));
+      hex.setAttribute("stroke-width",isCore?"2":"1.2");
+      g.appendChild(hex);
+      var pulse=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      pulse.setAttribute("r",isCore?"7":"5");pulse.setAttribute("class","topo-pulse");
+      pulse.setAttribute("fill",isAcc?"#fbbf24":"#2dd4bf");
+      g.appendChild(pulse);
+      var t1=document.createElementNS("http://www.w3.org/2000/svg","text");
+      t1.setAttribute("text-anchor","middle");t1.setAttribute("y",isCore?40:34);
+      t1.setAttribute("fill","#94a3b8");t1.setAttribute("font-size","10");
+      t1.setAttribute("font-family","JetBrains Mono,monospace");
+      t1.textContent=(p.node.shortLabel||"").slice(0,8);
+      g.appendChild(t1);
+      if(!isCore)g.addEventListener("click",function(){focusModule(ch.id,p.node.id);});
+      svg.appendChild(g);
+    });
+  });
+})();
+</script>
+</body>
+</html>
